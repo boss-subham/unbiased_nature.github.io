@@ -1,0 +1,59 @@
+bnp= bnp.geometry();
+
+Map.centerObject(bnp);
+
+
+
+var dataset = ee.ImageCollection('LANDSAT/LC09/C02/T1_L2')
+    .filterDate('2021-01-01', '2021-12-31');
+    function applyScaleFactors(image) {
+  var opticalBands = image.select('SR_B.').multiply(0.0000275).add(-0.2);
+  var thermalBands = image.select('ST_B.*').multiply(0.00341802).add(149.0);
+  return image.addBands(opticalBands, null, true)
+              .addBands(thermalBands, null, true);
+}
+
+dataset = dataset.map(applyScaleFactors);
+
+var image = ee.Image(dataset.mosaic()).clip(bnp);
+// Applies scaling factors.
+
+
+
+
+var visualization = {"bands":["SR_B4","SR_B3","SR_B2"],"min":0,"max":0.1};
+
+
+
+Map.addLayer(image, visualization, 'False Color (543)');
+Map.addLayer(bnp,{color:"Silver"},"bnp");
+
+
+
+
+var bands=['SR_B1','SR_B2','SR_B3','SR_B4','SR_B5','SR_B6','SR_B7'];
+Map.addLayer(bnpgt);
+
+var training = image.select(bands)
+.sampleRegions({
+  collection: bnpgt,
+  properties: ['LC'],
+  scale: 30,
+  geometries: true
+  
+});
+
+var classifier = ee.Classifier.smileRandomForest(1000).train({
+  features: training,
+  classProperty:'LC',
+  inputProperties: bands
+});
+
+var classified = image.select(bands).classify(classifier);
+
+Map.addLayer(
+  classified,
+  {min: 1, max: 6, palette: ['green','lightgreen','grey','red','blue','yellow']},
+  'classification_bnp_2021'
+  );
+Map.addLayer(bnp, {color: 'silver'}, 'bnp', false);
